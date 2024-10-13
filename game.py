@@ -101,4 +101,4 @@ class CountdownGame:
         return self._target
 
     def __str__(self):
-        return f"Numbers: {", ".join([str(number) for number in self.numbers])} , Target: {str(self.target)}"
+        return f"Numbers: {", ".join([str(number) for number in self.numbers])}, Target: {str(self.target)}"

@@ -20,6 +20,26 @@ class Operator(Enum):
         """
         return random.choice(list(Operator))
 
+    @property
+    def commutative(self) -> bool:
+        """
+        Indicates whether this node is commutative or not, where the order of the operands affects the result of the
+        calculation. Plus and times are commutative, but minus and divide are not.
+        :return: True if the operator is commutative, False otherwise.
+        """
+        return self == Operator.PLUS or self == Operator.TIMES
+
+    @property
+    def precedence(self) -> int:
+        """
+        The precedence of the operator according to BODMAS rules, multiply and divide should apply before plus and minus
+        unless the plus or minus themselves are inside brackets. This is used for formatting the string output.
+        :return: the precedence of the operator according to BODMAS rules.
+        """
+        if self == Operator.TIMES or self == Operator.DIVIDE:
+            return 2
+        return 1
+
     def __str__(self):
         """
         Override the default __str__ method to return the value (the symbol) rather than the name.
@@ -91,6 +111,9 @@ class NumberNode(Node):
         """
         return NumberNode(self.value)
 
+    def __hash__(self):
+        return hash(self.value)
+
     def __str__(self):
         """
         Override the __str__ method to return the numeric value of the node as a string
@@ -129,12 +152,14 @@ class OperatorNode(Node):
             case Operator.PLUS:
                 return left + right
             case Operator.MINUS:
-                if left < right:
-                    ValueError("No stage can be negative.")
+                if left <= right:
+                    raise ValueError("No stage can be negative, or 0 is useless")
                 return left - right
             case Operator.TIMES:
                 return left * right
             case Operator.DIVIDE:
+                if right == 0:
+                    raise ValueError("Division by zero")
                 # Ensure the division does not leave a remainder as this isn't allowed in countdown rules.
                 if left % right == 0:
                     return left // right
@@ -147,36 +172,19 @@ class OperatorNode(Node):
         """
         return OperatorNode(self.operator, self.left.clone(), self.right.clone())
 
-    @property
-    def precedence(self) -> int:
-        """
-        The precedence of the operator according to BODMAS rules, multiply and divide should apply before plus and minus
-        unless the plus or minus themselves are inside brackets. This is used for formatting the string output.
-        :return: the precedence of the operator according to BODMAS rules.
-        """
-        if self.operator == Operator.TIMES or self.operator == Operator.DIVIDE:
-            return 2
-        return 1
-
-    @property
-    def commutative(self) -> bool:
-        """
-        Indicates whether this node is commutative or not, where the order of the operands affects the result of the
-        calculation. Plus and times are commutative, but minus and divide are not.
-        :return: True if the operator is commutative, False otherwise.
-        """
-        return self.operator == Operator.PLUS or self.operator == Operator.TIMES
-
     def _subtree_string(self, node: Node) -> str:
         """
         A string representation of the given subtree relative to this node, adding brackets if required by BODMAS rules.
         :param node: The subtree to generate the string representation of.
         :return: the string representation of the subtree relative to this node.
         """
-        if isinstance(node, OperatorNode) and node.precedence < self.precedence:
+        if isinstance(node, OperatorNode) and node.operator.precedence < self.operator.precedence:
             return f"({str(node)})"
         else:
             return str(node)
+
+    def __hash__(self):
+        return hash(f"({str(self.left)} {str(self.operator)} {str(self.right)})")
 
     def __str__(self):
         """
