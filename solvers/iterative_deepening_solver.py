@@ -1,8 +1,7 @@
 from collections import namedtuple
-from itertools import cycle, islice, permutations, product
-from queue import Queue
+from itertools import cycle, islice, product
 
-from typing import List, Tuple, Iterable, Iterator
+from typing import List, Iterator
 
 from nodes import Node, OperatorNode, NumberNode, Operator
 from solvers import Solver
@@ -12,8 +11,9 @@ QueueItem = namedtuple('QueueItem', ['node', 'remaining'])
 
 
 class NextStateGeneratorVisitor:
-    def __init__(self, current_state: QueueItem):
+    def __init__(self, current_state: QueueItem, depth_first: bool = False):
         self.current_state: QueueItem = current_state
+        self.depth_first = depth_first
         self.current_leaf: int = 0
         self.check_leaf: int = 0
 
@@ -26,18 +26,22 @@ class NextStateGeneratorVisitor:
 
     def visit_number(self, node: NumberNode) -> Iterator[QueueItem]:
         if self.check_leaf == self.current_leaf:
-            for operator in Operator:
-                remaining_cycle = cycle(self.current_state.remaining)
-                for i in range(len(self.current_state.remaining)):
-                    next_number = next(remaining_cycle)
-                    next_remaining = list(islice(remaining_cycle, len(self.current_state.remaining) - 1))
+            remaining_cycle = cycle(self.current_state.remaining)
+            for i in range(len(self.current_state.remaining)):
+                next_number = next(remaining_cycle)
+                next_remaining = list(reversed(sorted(islice(remaining_cycle, len(self.current_state.remaining) - 1))))
+                operators = list(Operator)
+                if self.depth_first:
+                    next_remaining = next_remaining[::-1]
+                    operators = operators[::-1]
+                for operator in operators:
                     yield QueueItem(OperatorNode(operator, NumberNode(next_number), node.clone()),
                                     next_remaining)
                     if not operator.commutative:
                         yield QueueItem(
                             OperatorNode(operator, node.clone(), NumberNode(next_number)),
                             next_remaining)
-                    next(remaining_cycle)
+                next(remaining_cycle)
         else:
             yield QueueItem(NumberNode(node.value), self.current_state.remaining)
         self.current_leaf += 1
@@ -65,7 +69,7 @@ class IterativeDeepeningSolver(Solver):
     the closest result found.
     """
 
-    def solve(self) -> Node:
+    def solve(self, depth_first: bool = False) -> Node:
         # The list of unevaluated states
         state_queue: List[QueueItem] = []
         # The best known state found so far
@@ -77,7 +81,7 @@ class IterativeDeepeningSolver(Solver):
 
         # Fancy way of rotating the numbers so that I can generate the initial states. This iterator repeats the list of
         # numbers infinitely
-        number_cycle = cycle(self._game.numbers)
+        number_cycle = cycle(reversed(sorted(self._game.numbers)))
 
         # Build the initial state queue, this will be with a single NumberNode at the root of the tree for each number
         # in the list.
@@ -85,7 +89,7 @@ class IterativeDeepeningSolver(Solver):
             # Create the number node using the next number in the cycle
             node = NumberNode(next(number_cycle))
             # Take the next 5 items to be the unused numbers list for this state
-            rest = list(islice(number_cycle, 5))
+            rest = list(sorted(islice(number_cycle, 5)))
             # Advance the cycle, so the next iteration of this loop starts at the next number
             next(number_cycle)
             # Add the item to the queue.
@@ -93,8 +97,12 @@ class IterativeDeepeningSolver(Solver):
 
         # Keep looking for solutions while there are still unevaluated states to explore.
         while state_queue:
-            # Remove the next item from the queue
-            current_state = state_queue.pop(0)
+            if depth_first:
+                # Remove the last state from the queue
+                current_state = state_queue.pop()
+            else:
+                # Remove the next item from the queue
+                current_state = state_queue.pop(0)
             # See if the string representation of this candidate solution has been seen before. We can assume that if
             # the string representation is equal that the solutions can be considered identical. If we've seen it before
             # just skip to the next one.
@@ -119,7 +127,7 @@ class IterativeDeepeningSolver(Solver):
                     best_dist = dist
 
             # Generate next states. This will be adding each of the next numbers with each of the next operators.
-            generator = NextStateGeneratorVisitor(current_state)
+            generator = NextStateGeneratorVisitor(current_state, depth_first)
             if new_states := generator.generate_next_states():
                 state_queue += new_states
 

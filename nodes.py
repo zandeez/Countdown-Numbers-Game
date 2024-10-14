@@ -7,9 +7,9 @@ class Operator(Enum):
     """
     We use an Enum class here because it restricts possible values. In this case, the four main mathematical operators.
     """
+    TIMES = '*'
     PLUS = '+'
     MINUS = '-'
-    TIMES = '*'
     DIVIDE = '/'
 
     @staticmethod
@@ -156,10 +156,14 @@ class OperatorNode(Node):
                     raise ValueError("No stage can be negative, or 0 is useless")
                 return left - right
             case Operator.TIMES:
+                if left == 1 or right == 1:
+                    raise ValueError("Multiply by 1 is pointless")
                 return left * right
             case Operator.DIVIDE:
                 if right == 0:
                     raise ValueError("Division by zero")
+                if right == 1:
+                    raise ValueError("Division by 1 is pointless")
                 # Ensure the division does not leave a remainder as this isn't allowed in countdown rules.
                 if left % right == 0:
                     return left // right

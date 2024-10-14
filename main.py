@@ -12,6 +12,9 @@ if __name__ == '__main__':
     i = IterativeDeepeningSolver(fixed)
     result = i.solve()
     print(result, "=", result.eval())
+
+    result = i.solve(True)
+    print(result, "=", result.eval())
     print()
 
     random = CountdownGame.generate()
@@ -19,5 +22,6 @@ if __name__ == '__main__':
     j = IterativeDeepeningSolver(random)
     result = j.solve()
     print(result, "=", result.eval())
+    result = j.solve(True)
+    print(result, "=", result.eval())
     print()
-
